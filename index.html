@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSON Server - Test Soft Delete & Auto ID</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .card h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 6px;
+            color: #333;
+            font-weight: 500;
+        }
+        
+        input, textarea, select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+        
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s;
+            margin-right: 10px;
+            margin-top: 10px;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-danger {
+            background: #ef5350;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #e53935;
+            transform: translateY(-2px);
+        }
+        
+        .btn-warning {
+            background: #ffa726;
+            color: white;
+        }
+        
+        .btn-warning:hover {
+            background: #fb8c00;
+        }
+        
+        .btn-success {
+            background: #66bb6a;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #4caf50;
+        }
+        
+        .item-list {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        
+        .item {
+            background: #f5f5f5;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin-bottom: 12px;
+            border-radius: 6px;
+            transition: all 0.3s;
+        }
+        
+        .item.deleted {
+            background: #ffe0e0;
+            border-left-color: #ef5350;
+            opacity: 0.7;
+        }
+        
+        .item.deleted .item-title,
+        .item.deleted .item-text {
+            text-decoration: line-through;
+            color: #999;
+        }
+        
+        .item-title {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 1.1em;
+        }
+        
+        .item-text {
+            color: #666;
+            margin-bottom: 8px;
+            line-height: 1.4;
+        }
+        
+        .item-meta {
+            font-size: 12px;
+            color: #999;
+            margin-bottom: 10px;
+        }
+        
+        .item-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .item-actions button {
+            padding: 6px 12px;
+            font-size: 12px;
+            margin: 0;
+            margin-top: 0;
+        }
+        
+        .message {
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            display: none;
+        }
+        
+        .message.show {
+            display: block;
+        }
+        
+        .message.success {
+            background: #c8e6c9;
+            color: #2e7d32;
+            border: 1px solid #81c784;
+        }
+        
+        .message.error {
+            background: #ffcdd2;
+            color: #c62828;
+            border: 1px solid #ef9a9a;
+        }
+        
+        .full-width {
+            grid-column: 1 / -1;
+        }
+        
+        @media (max-width: 1024px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .footer {
+            text-align: center;
+            color: white;
+            margin-top: 30px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📝 JSON Server - Soft Delete & Auto ID</h1>
+        
+        <div class="grid">
+            <!-- Create Post -->
+            <div class="card">
+                <h2>➕ Tạo Post Mới</h2>
+                <div id="postMessage" class="message"></div>
+                <div class="form-group">
+                    <label for="postTitle">Tiêu đề:</label>
+                    <input type="text" id="postTitle" placeholder="Nhập tiêu đề...">
+                </div>
+                <div class="form-group">
+                    <label for="postViews">Lượt xem:</label>
+                    <input type="number" id="postViews" placeholder="Nhập lượt xem..." value="0">
+                </div>
+                <button class="btn-primary" onclick="createPost()">Tạo Post</button>
+            </div>
+            
+            <!-- Create Comment -->
+            <div class="card">
+                <h2>➕ Tạo Comment Mới</h2>
+                <div id="commentMessage" class="message"></div>
+                <div class="form-group">
+                    <label for="commentText">Nội dung:</label>
+                    <textarea id="commentText" placeholder="Nhập nội dung comment..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="commentPostId">ID Post:</label>
+                    <input type="text" id="commentPostId" placeholder="Nhập ID post..." value="1">
+                </div>
+                <button class="btn-primary" onclick="createComment()">Tạo Comment</button>
+            </div>
+            
+            <!-- Posts List -->
+            <div class="card">
+                <h2>📄 Danh sách Posts</h2>
+                <button class="btn-success" onclick="loadPosts()">🔄 Làm tươi</button>
+                <div class="item-list" id="postsList"></div>
+            </div>
+            
+            <!-- Comments List -->
+            <div class="card">
+                <h2>💬 Danh sách Comments</h2>
+                <button class="btn-success" onclick="loadComments()">🔄 Làm tươi</button>
+                <div class="item-list" id="commentsList"></div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="footer">
+        <p>API Server: http://localhost:3000</p>
+        <p>Server Status: <span id="serverStatus" style="color: #ffa726;">Kiểm tra...</span></p>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:3000';
+        
+        // Check server status
+        async function checkServerStatus() {
+            try {
+                const response = await fetch(`${API_URL}/posts`);
+                if (response.ok) {
+                    document.getElementById('serverStatus').textContent = '✅ Hoạt động';
+                    document.getElementById('serverStatus').style.color = '#66bb6a';
+                    loadPosts();
+                    loadComments();
+                } else {
+                    setServerOffline();
+                }
+            } catch (error) {
+                setServerOffline();
+            }
+        }
+        
+        function setServerOffline() {
+            document.getElementById('serverStatus').textContent = '❌ Không kết nối';
+            document.getElementById('serverStatus').style.color = '#ef5350';
+        }
+        
+        // Create post with auto-increment ID
+        async function createPost() {
+            const title = document.getElementById('postTitle').value.trim();
+            const views = parseInt(document.getElementById('postViews').value) || 0;
+            
+            if (!title) {
+                showMessage('postMessage', 'Vui lòng nhập tiêu đề', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/posts`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title, views })
+                });
+                
+                if (response.ok) {
+                    const post = await response.json();
+                    showMessage('postMessage', `✅ Tạo post thành công (ID: ${post.id})`, 'success');
+                    document.getElementById('postTitle').value = '';
+                    document.getElementById('postViews').value = '0';
+                    loadPosts();
+                } else {
+                    showMessage('postMessage', '❌ Lỗi tạo post', 'error');
+                }
+            } catch (error) {
+                showMessage('postMessage', `❌ Lỗi: ${error.message}`, 'error');
+            }
+        }
+        
+        // Create comment with auto-increment ID
+        async function createComment() {
+            const text = document.getElementById('commentText').value.trim();
+            const postId = document.getElementById('commentPostId').value.trim();
+            
+            if (!text || !postId) {
+                showMessage('commentMessage', 'Vui lòng nhập nội dung và ID post', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/comments`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text, postId })
+                });
+                
+                if (response.ok) {
+                    const comment = await response.json();
+                    showMessage('commentMessage', `✅ Tạo comment thành công (ID: ${comment.id})`, 'success');
+                    document.getElementById('commentText').value = '';
+                    loadComments();
+                } else {
+                    showMessage('commentMessage', '❌ Lỗi tạo comment', 'error');
+                }
+            } catch (error) {
+                showMessage('commentMessage', `❌ Lỗi: ${error.message}`, 'error');
+            }
+        }
+        
+        // Load and display posts with strikethrough for deleted items
+        async function loadPosts() {
+            try {
+                const response = await fetch(`${API_URL}/posts`);
+                if (!response.ok) throw new Error('Không thể tải posts');
+                
+                const posts = await response.json();
+                const postsList = document.getElementById('postsList');
+                
+                if (posts.length === 0) {
+                    postsList.innerHTML = '<p style="text-align: center; color: #999;">Chưa có posts</p>';
+                    return;
+                }
+                
+                postsList.innerHTML = posts.map(post => `
+                    <div class="item ${post.isDeleted ? 'deleted' : ''}">
+                        <div class="item-title">${post.title}</div>
+                        <div class="item-meta">ID: ${post.id} | Lượt xem: ${post.views} ${post.isDeleted ? '| ❌ Đã xoá' : ''}</div>
+                        <div class="item-actions">
+                            <button class="btn-warning" onclick="editPost('${post.id}')">✏️ Sửa</button>
+                            <button class="btn-${post.isDeleted ? 'success' : 'danger'}" 
+                                    onclick="toggleDeletePost('${post.id}', ${post.isDeleted})">
+                                ${post.isDeleted ? '↩️ Khôi phục' : '🗑️ Xoá'}
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading posts:', error);
+            }
+        }
+        
+        // Load and display comments with strikethrough for deleted items
+        async function loadComments() {
+            try {
+                const response = await fetch(`${API_URL}/comments`);
+                if (!response.ok) throw new Error('Không thể tải comments');
+                
+                const comments = await response.json();
+                const commentsList = document.getElementById('commentsList');
+                
+                if (comments.length === 0) {
+                    commentsList.innerHTML = '<p style="text-align: center; color: #999;">Chưa có comments</p>';
+                    return;
+                }
+                
+                commentsList.innerHTML = comments.map(comment => `
+                    <div class="item ${comment.isDeleted ? 'deleted' : ''}">
+                        <div class="item-text">${comment.text}</div>
+                        <div class="item-meta">ID: ${comment.id} | Post ID: ${comment.postId} ${comment.isDeleted ? '| ❌ Đã xoá' : ''}</div>
+                        <div class="item-actions">
+                            <button class="btn-warning" onclick="editComment('${comment.id}')">✏️ Sửa</button>
+                            <button class="btn-${comment.isDeleted ? 'success' : 'danger'}" 
+                                    onclick="toggleDeleteComment('${comment.id}', ${comment.isDeleted})">
+                                ${comment.isDeleted ? '↩️ Khôi phục' : '🗑️ Xoá'}
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading comments:', error);
+            }
+        }
+        
+        // Toggle soft delete for posts
+        async function toggleDeletePost(id, isCurrentlyDeleted) {
+            try {
+                const response = await fetch(`${API_URL}/posts/${id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ isDeleted: !isCurrentlyDeleted })
+                });
+                
+                if (response.ok) {
+                    loadPosts();
+                    showMessage('postMessage', isCurrentlyDeleted ? '✅ Khôi phục thành công' : '✅ Xoá thành công', 'success');
+                } else {
+                    showMessage('postMessage', '❌ Lỗi cập nhật', 'error');
+                }
+            } catch (error) {
+                showMessage('postMessage', `❌ Lỗi: ${error.message}`, 'error');
+            }
+        }
+        
+        // Toggle soft delete for comments
+        async function toggleDeleteComment(id, isCurrentlyDeleted) {
+            try {
+                const response = await fetch(`${API_URL}/comments/${id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ isDeleted: !isCurrentlyDeleted })
+                });
+                
+                if (response.ok) {
+                    loadComments();
+                    showMessage('commentMessage', isCurrentlyDeleted ? '✅ Khôi phục thành công' : '✅ Xoá thành công', 'success');
+                } else {
+                    showMessage('commentMessage', '❌ Lỗi cập nhật', 'error');
+                }
+            } catch (error) {
+                showMessage('commentMessage', `❌ Lỗi: ${error.message}`, 'error');
+            }
+        }
+        
+        // Edit post
+        async function editPost(id) {
+            const newTitle = prompt('Nhập tiêu đề mới:');
+            const newViews = prompt('Nhập lượt xem mới:');
+            
+            if (newTitle === null && newViews === null) return;
+            
+            try {
+                const updateData = {};
+                if (newTitle !== null) updateData.title = newTitle;
+                if (newViews !== null) updateData.views = parseInt(newViews) || 0;
+                
+                const response = await fetch(`${API_URL}/posts/${id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updateData)
+                });
+                
+                if (response.ok) {
+                    loadPosts();
+                    showMessage('postMessage', '✅ Cập nhật thành công', 'success');
+                } else {
+                    showMessage('postMessage', '❌ Lỗi cập nhật', 'error');
+                }
+            } catch (error) {
+                showMessage('postMessage', `❌ Lỗi: ${error.message}`, 'error');
+            }
+        }
+        
+        // Edit comment
+        async function editComment(id) {
+            const newText = prompt('Nhập nội dung mới:');
+            
+            if (newText === null) return;
+            
+            try {
+                const response = await fetch(`${API_URL}/comments/${id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: newText })
+                });
+                
+                if (response.ok) {
+                    loadComments();
+                    showMessage('commentMessage', '✅ Cập nhật thành công', 'success');
+                } else {
+                    showMessage('commentMessage', '❌ Lỗi cập nhật', 'error');
+                }
+            } catch (error) {
+                showMessage('commentMessage', `❌ Lỗi: ${error.message}`, 'error');
+            }
+        }
+        
+        // Show message
+        function showMessage(elementId, text, type) {
+            const element = document.getElementById(elementId);
+            element.textContent = text;
+            element.className = `message show ${type}`;
+            
+            setTimeout(() => {
+                element.classList.remove('show');
+            }, 4000);
+        }
+        
+        // Initial load
+        document.addEventListener('DOMContentLoaded', checkServerStatus);
+    </script>
+</body>
+</html>
